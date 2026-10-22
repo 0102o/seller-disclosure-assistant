@@ -92,6 +92,7 @@ Typed answers save as the homeowner goes, with no Save button. A spoken answer i
 ## With more time
 
 - Live captions relayed through the server: the browser streams to this app and the app talks to OpenAI, buffering audio until the connection is ready so the first words aren't lost.
+- A "Tidy up" button for long, rambling answers: the model removes filler and false starts but keeps every fact, number and hedge ("I think it was 2022 or 2023"), the seller compares it with their exact words and picks one, and a code check falls back to the original if a number or hedge went missing. I left it out because the seller's own words are the safer default on a disclosure, and the transcription model already drops "um" and "uh".
 - A conversational intake for longer sections: a GPT-Live session that asks follow-up questions and writes structured answers, each still confirmed by the seller.
 - An agent view: answers that need follow-up, comments, and a signed, versioned snapshot, where a later change becomes a new disclosure instead of an edit.
 - A backend so the seller and agent see the same answers.
