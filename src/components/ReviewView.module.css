@@ -1,0 +1,48 @@
+.title {
+  margin-bottom: 1rem;
+}
+
+.banner {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+  margin-top: 1rem;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.item {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.unanswered {
+  border-style: dashed;
+  border-color: var(--ink-soft);
+}
+
+.itemHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.prompt {
+  font-size: 1.1rem;
+}
+
+.note {
+  white-space: pre-wrap;
+}
+
+.change {
+  justify-self: start;
+  font-weight: 600;
+}
