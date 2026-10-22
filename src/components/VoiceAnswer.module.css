@@ -106,14 +106,27 @@
   outline-offset: 1px;
 }
 
-.suggestion {
-  display: grid;
-  gap: 0.6rem;
-  justify-items: start;
-  padding: 0.85rem 1rem;
+.suggestionLine {
+  padding: 0.7rem 0.9rem;
   border-radius: 10px;
   background: var(--lime-soft);
   color: var(--lime-ink);
+}
+
+.saveRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.suggestedTag {
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--lime-soft);
+  color: var(--lime-ink);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .evidence {

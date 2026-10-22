@@ -1,5 +1,6 @@
 import type { Recording } from "@/hooks/useRecorder";
 import type { QuestionId } from "./questions";
+import type { Suggestion } from "./suggestion";
 
 const CODES = [
   "not_configured",
@@ -45,6 +46,25 @@ export async function transcribeRecording(
     throw new TranscribeError(code);
   }
   return (data.text ?? "").trim();
+}
+
+/** Asks the server which answer a transcript sounds like. Any failure just means no suggestion. */
+export async function fetchSuggestion(
+  questionId: QuestionId,
+  transcript: string,
+): Promise<Suggestion | null> {
+  try {
+    const res = await fetch("/api/suggest", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ questionId, transcript }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { suggestion?: Suggestion | null };
+    return data.suggestion ?? null;
+  } catch {
+    return null;
+  }
 }
 
 let configured: Promise<boolean> | null = null;

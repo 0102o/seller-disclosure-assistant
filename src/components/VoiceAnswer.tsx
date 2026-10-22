@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { MAX_RECORDING_MS, useRecorder, type Recording, type RecorderError } from "@/hooks/useRecorder";
-import { CHOICE_LABEL, type Choice } from "@/lib/answers";
+import { CHOICE_LABEL, CHOICES, type Choice } from "@/lib/answers";
 import { disclosureActions } from "@/lib/answers-store";
 import type { QuestionId } from "@/lib/questions";
-import { suggestChoice } from "@/lib/suggest";
+import type { Suggestion } from "@/lib/suggestion";
 import {
+  fetchSuggestion,
   TranscribeError,
   transcribeRecording,
   voiceAvailable,
@@ -17,7 +18,13 @@ import styles from "./VoiceAnswer.module.css";
 type Phase =
   | { name: "idle" }
   | { name: "transcribing" }
-  | { name: "review"; transcript: string }
+  | {
+      name: "review";
+      transcript: string;
+      /** The model's suggested answer, which arrives a moment after the transcript. */
+      suggestion: Suggestion | null | "pending";
+      request: number;
+    }
   | ({ name: "error" } & ErrorView);
 
 type ErrorView = { message: string; retry: "transcribe" | "record" | null };
@@ -67,7 +74,7 @@ export function VoiceAnswer({
     focusTarget.current = el;
   }, []);
   const engaged = useRef(false);
-  const addButton = useRef<HTMLButtonElement>(null);
+  const suggestRequest = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -87,8 +94,15 @@ export function VoiceAnswer({
         setAnnouncement("");
         return;
       }
-      setPhase({ name: "review", transcript });
-      setAnnouncement("Transcript ready. Review it before adding it to your answer.");
+      const request = ++suggestRequest.current;
+      setPhase({ name: "review", transcript, suggestion: "pending", request });
+      setAnnouncement("Transcript ready. Review it, then save it as Yes, No or Not sure.");
+      // Suggest from what was actually said, while the homeowner reads the transcript.
+      const suggestion = await fetchSuggestion(questionId, transcript);
+      setPhase((p) => (p.name === "review" && p.request === request ? { ...p, suggestion } : p));
+      if (suggestion && request === suggestRequest.current) {
+        setAnnouncement(`This sounds like ${CHOICE_LABEL[suggestion.choice]}.`);
+      }
     } catch (error) {
       const code = error instanceof TranscribeError ? error.code : "unavailable";
       setPhase(TRANSCRIBE_ERRORS[code]);
@@ -114,11 +128,13 @@ export function VoiceAnswer({
     void recorder.start();
   }
 
-  function addToAnswer(transcript: string) {
+  // One tap confirms both the answer and the transcript.
+  function saveAs(choice: Choice, transcript: string) {
+    disclosureActions.choose(questionId, choice);
     disclosureActions.addTranscript(questionId, transcript);
     engaged.current = false; // onAdded moves focus to the explanation box instead
     setPhase({ name: "idle" });
-    setAnnouncement("Added to your answer.");
+    setAnnouncement(`Saved as ${CHOICE_LABEL[choice]}.`);
     onAdded();
   }
 
@@ -231,28 +247,28 @@ export function VoiceAnswer({
             className={styles.transcript}
             rows={3}
             value={phase.transcript}
-            onChange={(e) => setPhase({ name: "review", transcript: e.target.value })}
+            onChange={(e) => setPhase({ ...phase, transcript: e.target.value })}
           />
-          <SuggestionChip
-            questionId={questionId}
-            transcript={phase.transcript}
-            currentChoice={currentChoice}
-            onChosen={(label) => {
-              setAnnouncement(`Answer set to ${label}.`);
-              addButton.current?.focus(); // the suggestion box disappears once it's applied
-            }}
-          />
+          <SuggestionLine suggestion={phase.suggestion} currentChoice={currentChoice} />
+          <div className={styles.saveRow} role="group" aria-label="Save this answer as">
+            {CHOICES.map((choice) => {
+              const suggested =
+                phase.suggestion !== "pending" && phase.suggestion?.choice === choice;
+              return (
+                <button
+                  key={choice}
+                  type="button"
+                  className={`button ${suggested ? "button--primary" : "button--secondary"}`}
+                  onClick={() => saveAs(choice, phase.transcript)}
+                >
+                  Save as {CHOICE_LABEL[choice]}
+                  {suggested && <span className={styles.suggestedTag}>Suggested</span>}
+                </button>
+              );
+            })}
+          </div>
           <div className="actions">
-            <button
-              type="button"
-              ref={addButton}
-              className="button button--primary"
-              onClick={() => addToAnswer(phase.transcript)}
-              disabled={!phase.transcript.trim()}
-            >
-              Add to my answer
-            </button>
-            <button type="button" className="button button--secondary" onClick={startRecording}>
+            <button type="button" className="button button--quiet" onClick={startRecording}>
               Record again
             </button>
             <button type="button" className="button button--quiet" onClick={() => setPhase({ name: "idle" })}>
@@ -307,53 +323,26 @@ export function VoiceAnswer({
   );
 }
 
-function SuggestionChip({
-  questionId,
-  transcript,
+function SuggestionLine({
+  suggestion,
   currentChoice,
-  onChosen,
 }: {
-  questionId: QuestionId;
-  transcript: string;
+  suggestion: Suggestion | null | "pending";
   currentChoice: Choice | null;
-  onChosen: (label: string) => void;
 }) {
-  const suggestion = suggestChoice(questionId, transcript);
-  if (!suggestion) {
-    return currentChoice === null ? (
-      <p className="small muted">After adding this, choose Yes, No or Not sure above.</p>
-    ) : null;
+  if (suggestion === "pending") {
+    return <p className="small muted">Checking which answer this sounds like&hellip;</p>;
   }
-  if (suggestion.choice === currentChoice) return null;
-
+  if (!suggestion) return <p className="small muted">Pick the answer that fits.</p>;
   const label = CHOICE_LABEL[suggestion.choice];
   return (
-    <div className={styles.suggestion}>
-      <p>
-        {currentChoice ? (
-          <>
-            You chose <strong>{CHOICE_LABEL[currentChoice]}</strong>, but this sounds like{" "}
-            <strong>{label}</strong>
-          </>
-        ) : (
-          <>
-            This sounds like <strong>{label}</strong>
-          </>
-        )}
-        {suggestion.hedged && " (as far as you know)"}, based on{" "}
-        <q className={styles.evidence}>{suggestion.evidence}</q>
-      </p>
-      <button
-        type="button"
-        className="button button--secondary"
-        onClick={() => {
-          disclosureActions.choose(questionId, suggestion.choice);
-          onChosen(label);
-        }}
-      >
-        {currentChoice ? `Change to ${label}` : `Choose ${label}`}
-      </button>
-    </div>
+    <p className={styles.suggestionLine}>
+      {currentChoice && currentChoice !== suggestion.choice && (
+        <>You chose {CHOICE_LABEL[currentChoice]} earlier. </>
+      )}
+      This sounds like <strong>{label}</strong>, based on{" "}
+      <q className={styles.evidence}>{suggestion.evidence}</q>. Nothing is saved until you choose.
+    </p>
   );
 }
 
