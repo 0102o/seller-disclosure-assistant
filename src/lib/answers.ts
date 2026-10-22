@@ -34,7 +34,11 @@ export function answersReducer(state: Answers, action: Action): Answers {
     case "choose":
       return update(state, action.id, action.at, () => ({ choice: action.choice }));
     case "editNote":
-      return update(state, action.id, action.at, () => ({ note: action.note }));
+      // Clearing the explanation also clears the "spoken answer" marker.
+      return update(state, action.id, action.at, (prev) => ({
+        note: action.note,
+        usedVoice: action.note.trim() ? prev.usedVoice : false,
+      }));
     case "addTranscript": {
       const text = action.text.trim();
       if (!text) return state;

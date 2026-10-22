@@ -28,6 +28,14 @@ describe("answersReducer", () => {
     expect(state["water-damage"]?.choice).toBeNull();
   });
 
+  it("forgets the voice marker once the explanation is cleared", () => {
+    let state = answersReducer({}, { type: "addTranscript", id: "roof", text: "Small leak.", at: AT });
+    state = answersReducer(state, { type: "editNote", id: "roof", note: "Small leak, fixed.", at: AT });
+    expect(state.roof?.usedVoice).toBe(true);
+    state = answersReducer(state, { type: "editNote", id: "roof", note: "", at: AT });
+    expect(state.roof?.usedVoice).toBe(false);
+  });
+
   it("ignores an empty transcript", () => {
     const state: Answers = {};
     expect(answersReducer(state, { type: "addTranscript", id: "roof", text: "  ", at: AT })).toBe(state);
