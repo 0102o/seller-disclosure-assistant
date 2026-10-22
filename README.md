@@ -15,6 +15,7 @@ npm run dev                  # http://localhost:3000
 ```
 
 Without a key the app still works: voice answers are hidden with a short note, and typing works as usual.
+If the key can't use `gpt-transcribe`, set `OPENAI_TRANSCRIBE_MODEL` (for example `gpt-4o-mini-transcribe`); the server logs the API's status and error code.
 
 Tests:
 

@@ -33,6 +33,8 @@ async function providerError(res: Response): Promise<VoiceError> {
   console.warn(`[openai] ${res.status} ${body?.error?.code ?? ""}`.trim());
   if (res.status === 400) return new VoiceError("bad_audio", 422);
   if (res.status === 429) return new VoiceError("busy", 429);
+  // Bad key, no access to the model, or an unknown model: retrying won't help.
+  if ([401, 403, 404].includes(res.status)) return new VoiceError("not_configured", 503);
   return new VoiceError("unavailable", 502);
 }
 
