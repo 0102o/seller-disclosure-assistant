@@ -44,6 +44,18 @@ export function saveAnswers(
   }
 }
 
+/** Whether writes will stick, checked up front so the page can say so before the first edit. */
+export function canSave(storage: Pick<Storage, "setItem" | "removeItem"> | null): boolean {
+  if (!storage) return false;
+  try {
+    storage.setItem(`${STORAGE_KEY}:probe`, "1");
+    storage.removeItem(`${STORAGE_KEY}:probe`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function sanitize(value: unknown): Answers {
   if (typeof value !== "object" || value === null) return {};
   const answers: Answers = {};

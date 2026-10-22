@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { answersReducer, type Action, type Answers, type Choice } from "./answers";
 import type { QuestionId } from "./questions";
-import { loadAnswers, saveAnswers, STORAGE_KEY } from "./storage";
+import { canSave, loadAnswers, saveAnswers, STORAGE_KEY } from "./storage";
 
 // localStorage is the source of truth. React reads it through
 // useSyncExternalStore; every action runs the pure reducer and writes through.
@@ -25,7 +25,10 @@ function browserStorage(): Storage | null {
 }
 
 function getSnapshot(): StoreState {
-  state ??= { answers: loadAnswers(browserStorage()), persisted: true, savedAt: null };
+  if (!state) {
+    const storage = browserStorage();
+    state = { answers: loadAnswers(storage), persisted: canSave(storage), savedAt: null };
+  }
   return state;
 }
 

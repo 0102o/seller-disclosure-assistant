@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Answers } from "./answers";
-import { loadAnswers, saveAnswers, STORAGE_KEY } from "./storage";
+import { canSave, loadAnswers, saveAnswers, STORAGE_KEY } from "./storage";
 
 // A plain in-memory Storage, so tests don't depend on a browser or on Node's own localStorage.
 function memoryStorage(initial: Record<string, string> = {}) {
@@ -8,6 +8,7 @@ function memoryStorage(initial: Record<string, string> = {}) {
   return {
     getItem: (key: string) => data.get(key) ?? null,
     setItem: (key: string, value: string) => void data.set(key, value),
+    removeItem: (key: string) => void data.delete(key),
   };
 }
 
@@ -58,5 +59,19 @@ describe("storage", () => {
       },
     };
     expect(saveAnswers(full, SAMPLE, AT)).toBe(false);
+  });
+
+  it("knows up front whether the browser lets it save", () => {
+    const storage = memoryStorage();
+    expect(canSave(storage)).toBe(true);
+    expect(storage.getItem(`${STORAGE_KEY}:probe`)).toBeNull(); // probe cleaned up
+    expect(canSave(null)).toBe(false);
+    const blocked = {
+      setItem: () => {
+        throw new DOMException("denied", "SecurityError");
+      },
+      removeItem: () => {},
+    };
+    expect(canSave(blocked)).toBe(false);
   });
 });
