@@ -89,13 +89,14 @@ export function useRecorder(onRecorded: (recording: Recording) => void) {
       if (mine === attempt.current) fail(errorFor(e));
       return;
     }
-    const s: Session = { stream, recorder: null, audioContext, frame: 0, timer: 0 };
     if (mine !== attempt.current) {
-      // Cancelled while the permission prompt was still open.
-      session.current = s;
-      release();
+      // Cancelled (or superseded) while the permission prompt was still open.
+      // Stop this stream directly: session.current may already be a newer recording.
+      stream.getTracks().forEach((track) => track.stop());
+      void audioContext?.close();
       return;
     }
+    const s: Session = { stream, recorder: null, audioContext, frame: 0, timer: 0 };
     session.current = s;
 
     const mimeType = MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type));
@@ -127,20 +128,11 @@ export function useRecorder(onRecorded: (recording: Recording) => void) {
       onRecordedRef.current({ blob: new Blob(chunks, { type }), mimeType: type, durationMs });
     };
 
-    if (audioContext) {
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 512;
-      audioContext.createMediaStreamSource(stream).connect(analyser);
-      const samples = new Float32Array(analyser.fftSize);
-      const tick = () => {
-        analyser.getFloatTimeDomainData(samples);
-        let sum = 0;
-        for (const v of samples) sum += v * v;
-        setLevel(Math.min(1, Math.sqrt(sum / samples.length) * 4));
-        s.frame = requestAnimationFrame(tick);
-      };
-      void audioContext.resume();
-      s.frame = requestAnimationFrame(tick);
+    try {
+      recorder.start(1000);
+    } catch {
+      release();
+      return fail("failed");
     }
 
     s.timer = window.setInterval(() => {
@@ -149,7 +141,27 @@ export function useRecorder(onRecorded: (recording: Recording) => void) {
       if (elapsed >= MAX_RECORDING_MS && recorder.state === "recording") recorder.stop();
     }, 250);
 
-    recorder.start(1000);
+    // The level meter is a nicety: if it can't be set up, recording carries on without it.
+    if (audioContext) {
+      try {
+        const analyser = audioContext.createAnalyser();
+        analyser.fftSize = 512;
+        audioContext.createMediaStreamSource(stream).connect(analyser);
+        const samples = new Float32Array(analyser.fftSize);
+        const tick = () => {
+          analyser.getFloatTimeDomainData(samples);
+          let sum = 0;
+          for (const v of samples) sum += v * v;
+          setLevel(Math.min(1, Math.sqrt(sum / samples.length) * 4));
+          s.frame = requestAnimationFrame(tick);
+        };
+        void audioContext.resume();
+        s.frame = requestAnimationFrame(tick);
+      } catch {
+        setLevel(0);
+      }
+    }
+
     setStatus("recording");
   }, [release]);
 
