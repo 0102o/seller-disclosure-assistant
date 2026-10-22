@@ -102,4 +102,5 @@ Typed answers save as the homeowner goes, with no Save button. A spoken answer i
 ## Notes
 
 - Built with AI assistance (Claude Code), which the brief allows.
+- `AI.md` is a compact map of the code and its invariants, for anyone reviewing with an AI assistant.
 - The property and seller are fictional.
