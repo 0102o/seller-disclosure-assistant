@@ -9,6 +9,10 @@ export type Recording = { blob: Blob; mimeType: string; durationMs: number };
 /** Long answers are fine, but one recording is capped. The UI offers "record more". */
 export const MAX_RECORDING_MS = 120_000;
 
+/** The live waveform shows this many recent volume samples, one every WAVE_STEP_MS. */
+export const WAVE_BARS = 40;
+const WAVE_STEP_MS = 70;
+
 // Chrome, Firefox and Safari 18.4+ record WebM/Opus; older Safari only MP4/AAC.
 const MIME_TYPES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
 
@@ -18,13 +22,14 @@ type Session = {
   audioContext: AudioContext | null;
   frame: number;
   timer: number;
+  lastSample: number;
 };
 
 export function useRecorder(onRecorded: (recording: Recording) => void) {
   const [status, setStatus] = useState<RecorderStatus>("idle");
   const [error, setError] = useState<RecorderError | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
-  const [level, setLevel] = useState(0);
+  const [levels, setLevels] = useState<number[]>([]);
 
   const session = useRef<Session | null>(null);
   // Bumped by every start, cancel and unmount. A recording or permission
@@ -44,7 +49,7 @@ export function useRecorder(onRecorded: (recording: Recording) => void) {
     if (s.recorder?.state === "recording") s.recorder.stop();
     s.stream.getTracks().forEach((track) => track.stop()); // turns off the browser's mic indicator
     void s.audioContext?.close();
-    setLevel(0);
+    setLevels([]);
   }, []);
 
   // Never leave the microphone on after the component goes away.
@@ -69,9 +74,10 @@ export function useRecorder(onRecorded: (recording: Recording) => void) {
     const mine = ++attempt.current;
     setError(null);
     setElapsedMs(0);
+    setLevels([]);
     setStatus("requesting");
 
-    // Created inside the click so Safari lets it run; only used for the level meter.
+    // Created inside the click so Safari lets it run; only used for the waveform.
     let audioContext: AudioContext | null = null;
     try {
       audioContext = new AudioContext();
@@ -96,7 +102,7 @@ export function useRecorder(onRecorded: (recording: Recording) => void) {
       void audioContext?.close();
       return;
     }
-    const s: Session = { stream, recorder: null, audioContext, frame: 0, timer: 0 };
+    const s: Session = { stream, recorder: null, audioContext, frame: 0, timer: 0, lastSample: 0 };
     session.current = s;
 
     const mimeType = MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type));
@@ -141,24 +147,29 @@ export function useRecorder(onRecorded: (recording: Recording) => void) {
       if (elapsed >= MAX_RECORDING_MS && recorder.state === "recording") recorder.stop();
     }, 250);
 
-    // The level meter is a nicety: if it can't be set up, recording carries on without it.
+    // The waveform is a nicety: if it can't be set up, recording carries on without it.
     if (audioContext) {
       try {
         const analyser = audioContext.createAnalyser();
         analyser.fftSize = 512;
         audioContext.createMediaStreamSource(stream).connect(analyser);
         const samples = new Float32Array(analyser.fftSize);
-        const tick = () => {
-          analyser.getFloatTimeDomainData(samples);
-          let sum = 0;
-          for (const v of samples) sum += v * v;
-          setLevel(Math.min(1, Math.sqrt(sum / samples.length) * 4));
+        const tick = (now: number) => {
+          if (now - s.lastSample >= WAVE_STEP_MS) {
+            s.lastSample = now;
+            analyser.getFloatTimeDomainData(samples);
+            let sum = 0;
+            for (const v of samples) sum += v * v;
+            // The square root lifts quiet speech so it is still visible.
+            const level = Math.min(1, Math.sqrt(Math.sqrt(sum / samples.length)) * 2.2);
+            setLevels((prev) => [...prev.slice(-(WAVE_BARS - 1)), level]);
+          }
           s.frame = requestAnimationFrame(tick);
         };
         void audioContext.resume();
         s.frame = requestAnimationFrame(tick);
       } catch {
-        setLevel(0);
+        setLevels([]);
       }
     }
 
@@ -168,9 +179,8 @@ export function useRecorder(onRecorded: (recording: Recording) => void) {
   const stop = useCallback(() => {
     const s = session.current;
     if (s?.recorder?.state !== "recording") return;
-    // Freeze the meter right away so it never looks like we're still listening.
+    // Freeze the waveform right away so it never looks like we're still listening.
     cancelAnimationFrame(s.frame);
-    setLevel(0);
     s.recorder.stop();
   }, []);
 
@@ -180,7 +190,7 @@ export function useRecorder(onRecorded: (recording: Recording) => void) {
     setStatus("idle");
   }, [release]);
 
-  return { status, error, elapsedMs, level, start, stop, cancel };
+  return { status, error, elapsedMs, levels, start, stop, cancel };
 }
 
 function errorFor(e: unknown): RecorderError {

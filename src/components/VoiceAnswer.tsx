@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { MAX_RECORDING_MS, useRecorder, type Recording, type RecorderError } from "@/hooks/useRecorder";
+import {
+  MAX_RECORDING_MS,
+  useRecorder,
+  WAVE_BARS,
+  type Recording,
+  type RecorderError,
+} from "@/hooks/useRecorder";
 import { CHOICE_LABEL, CHOICES, type Choice } from "@/lib/answers";
 import { disclosureActions } from "@/lib/answers-store";
 import type { QuestionId } from "@/lib/questions";
@@ -206,9 +212,7 @@ export function VoiceAnswer({
               {formatTime(recorder.elapsedMs)} / {formatTime(MAX_RECORDING_MS)}
             </span>
           </div>
-          <div className={styles.meter} aria-hidden="true">
-            <div className={styles.meterFill} style={{ transform: `scaleX(${recorder.level})` }} />
-          </div>
+          <Waveform levels={recorder.levels} />
           <p className="small muted">Start with yes, no or not sure, then add any details.</p>
           <div className="actions">
             <button
@@ -343,6 +347,18 @@ function SuggestionLine({
       This sounds like <strong>{label}</strong>, based on{" "}
       <q className={styles.evidence}>{suggestion.evidence}</q>. Nothing is saved until you choose.
     </p>
+  );
+}
+
+// Recent volume as bars that scroll from right to left while the homeowner speaks.
+function Waveform({ levels }: { levels: number[] }) {
+  const bars = [...Array<number>(WAVE_BARS - levels.length).fill(0), ...levels];
+  return (
+    <div className={styles.wave} aria-hidden="true">
+      {bars.map((level, i) => (
+        <span key={i} style={{ transform: `scaleY(${Math.max(0.08, level)})` }} />
+      ))}
+    </div>
   );
 }
 

@@ -54,18 +54,20 @@
   color: var(--ink-soft);
 }
 
-.meter {
-  height: 0.4rem;
-  border-radius: 999px;
-  background: #e4dfd2;
-  overflow: hidden;
+.wave {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 2.5rem;
 }
 
-.meterFill {
+.wave span {
+  flex: 1;
   height: 100%;
+  border-radius: 999px;
   background: var(--green);
-  transform-origin: left;
-  transition: transform 80ms linear;
+  transform-origin: center;
+  transition: transform 70ms linear;
 }
 
 .working {
@@ -157,7 +159,7 @@
     animation: none;
   }
 
-  .meterFill {
+  .wave span {
     transition: none;
   }
 }
