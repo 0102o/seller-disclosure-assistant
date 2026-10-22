@@ -23,11 +23,16 @@ export async function GET() {
 
 export async function POST(request: Request) {
   if (!isSameOrigin(request)) return fail("forbidden", 403);
-  if (Number(request.headers.get("content-length") ?? 0) > MAX_BYTES + 64_000) {
-    return fail("too_long", 413);
-  }
 
-  const form = await request.formData().catch(() => null);
+  // Count bytes while reading, so an oversized upload is cut off before it is
+  // buffered (a missing or false Content-Length header can't get around this).
+  const body = await readUpTo(request, MAX_BYTES + 64_000);
+  if (!body) return fail("too_long", 413);
+  const form = await new Response(body, {
+    headers: { "content-type": request.headers.get("content-type") ?? "" },
+  })
+    .formData()
+    .catch(() => null);
   const audio = form?.get("audio");
   const questionId = String(form?.get("questionId") ?? "");
   if (!(audio instanceof File) || !isQuestionId(questionId)) return fail("bad_request", 400);
@@ -51,5 +56,22 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof VoiceError) return fail(error.code, error.status);
     throw error;
+  }
+}
+
+async function readUpTo(request: Request, limit: number): Promise<Blob | null> {
+  if (!request.body) return new Blob();
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) return new Blob(chunks as BlobPart[]);
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
   }
 }
