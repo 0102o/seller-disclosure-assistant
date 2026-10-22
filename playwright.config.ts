@@ -1,7 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 import path from "node:path";
 
-const PORT = 3123;
+// Same port as `npm run dev`: Next.js allows one dev server per project, so the
+// tests reuse a running one instead of failing to start a second.
+const PORT = 3000;
 // Chromium plays this file as the microphone, so voice tests never need a real mic.
 const FAKE_MIC = path.resolve("e2e/fixtures/yes-leak.wav");
 
