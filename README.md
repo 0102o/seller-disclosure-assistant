@@ -20,6 +20,7 @@ Tests:
 
 ```bash
 npm test                          # unit tests (Vitest)
+npm run typecheck                 # generates Next.js route types, then runs tsc
 npx playwright install chromium   # once, for the browser tests
 npm run e2e                       # browser tests with a fake microphone and a mocked API
 REAL_API=1 npm run e2e -- e2e/real-api.spec.ts   # one test against the real API (needs the key)
