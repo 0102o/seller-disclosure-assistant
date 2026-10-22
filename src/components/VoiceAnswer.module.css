@@ -1,0 +1,150 @@
+.voice {
+  margin-top: 0.75rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.row p {
+  flex: 1 1 16rem;
+}
+
+.unavailable {
+  margin-top: 0.75rem;
+}
+
+.panel {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.recording {
+  border-color: var(--green);
+}
+
+.recordingHead {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: #c0392b;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.recordingLabel {
+  font-weight: 600;
+}
+
+.timer {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+.meter {
+  height: 0.4rem;
+  border-radius: 999px;
+  background: #e4dfd2;
+  overflow: hidden;
+}
+
+.meterFill {
+  height: 100%;
+  background: var(--green);
+  transform-origin: left;
+  transition: transform 80ms linear;
+}
+
+.working {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.spinner {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  border-top-color: var(--green);
+  animation: spin 0.8s linear infinite;
+}
+
+.review {
+  border-color: var(--green);
+}
+
+.reviewLabel {
+  font-weight: 600;
+}
+
+.transcript {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  color: inherit;
+  resize: vertical;
+}
+
+.transcript:focus-visible {
+  outline: 3px solid var(--green);
+  outline-offset: 1px;
+}
+
+.suggestion {
+  display: grid;
+  gap: 0.6rem;
+  justify-items: start;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  background: var(--lime-soft);
+  color: var(--lime-ink);
+}
+
+.evidence {
+  font-style: italic;
+}
+
+.error {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot,
+  .spinner {
+    animation: none;
+  }
+
+  .meterFill {
+    transition: none;
+  }
+}

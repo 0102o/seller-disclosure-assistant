@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRef } from "react";
 import {
   CHOICE_LABEL,
   CHOICES,
@@ -12,6 +13,7 @@ import {
 import { disclosureActions, useDisclosure, type StoreState } from "@/lib/answers-store";
 import { getQuestion, QUESTIONS, questionNumber, type QuestionId } from "@/lib/questions";
 import { Loading } from "./Loading";
+import { VoiceAnswer } from "./VoiceAnswer";
 import styles from "./QuestionView.module.css";
 
 const NOTE_HELP: Record<Exclude<Choice, "yes">, string> = {
@@ -21,6 +23,7 @@ const NOTE_HELP: Record<Exclude<Choice, "yes">, string> = {
 
 export function QuestionView({ id, fromReview }: { id: QuestionId; fromReview: boolean }) {
   const store = useDisclosure();
+  const noteRef = useRef<HTMLTextAreaElement>(null);
   if (!store) return <Loading />;
 
   const question = getQuestion(id);
@@ -92,6 +95,7 @@ export function QuestionView({ id, fromReview }: { id: QuestionId; fromReview: b
           </p>
           <textarea
             id="note"
+            ref={noteRef}
             className={styles.textarea}
             aria-describedby="note-help"
             rows={4}
@@ -103,6 +107,11 @@ export function QuestionView({ id, fromReview }: { id: QuestionId; fromReview: b
               A short explanation helps here. Your agent will need one for every Yes.
             </p>
           )}
+          <VoiceAnswer
+            questionId={id}
+            currentChoice={choice}
+            onAdded={() => noteRef.current?.focus()}
+          />
         </div>
 
         <SaveStatus store={store} />
