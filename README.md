@@ -38,9 +38,9 @@ REAL_API=1 npm run e2e -- e2e/real-api.spec.ts   # one test against the real API
 | Answers survive a refresh | `src/lib/storage.ts`, `src/lib/answers-store.ts` |
 | Extra feature: plain-language help for every question | `hint` in `src/lib/questions.ts` |
 
-| Overview | Review |
-| --- | --- |
-| ![Overview with progress and per-question status](docs/screenshots/overview.png) | ![Review screen with unanswered questions marked](docs/screenshots/review.png) |
+| Overview | Review | Phone |
+| --- | --- | --- |
+| ![Overview with progress and per-question status](docs/screenshots/overview.png) | ![Review screen with unanswered questions marked](docs/screenshots/review.png) | ![A question at phone width](docs/screenshots/mobile.png) |
 
 ## How it works
 
