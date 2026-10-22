@@ -1,4 +1,5 @@
 import "server-only";
+import { SUGGESTION_SCHEMA } from "./suggestion";
 
 // Everything that touches the OpenAI key lives in this server-only module.
 // Importing it from client code fails the build.
@@ -38,12 +39,15 @@ async function providerError(res: Response): Promise<VoiceError> {
   return new VoiceError("unavailable", 502);
 }
 
+// A dropped connection or timeout is retried once; an HTTP error response is not.
 async function call(path: string, init: RequestInit, timeoutMs: number): Promise<Response> {
-  try {
-    return await fetch(`${API}${path}`, { ...init, signal: AbortSignal.timeout(timeoutMs) });
-  } catch {
-    console.warn(`[openai] ${path} network error or timeout`);
-    throw new VoiceError("unavailable", 504);
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fetch(`${API}${path}`, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+    } catch {
+      console.warn(`[openai] ${path} network error or timeout (attempt ${attempt})`);
+      if (attempt === 2) throw new VoiceError("unavailable", 504);
+    }
   }
 }
 
@@ -70,9 +74,62 @@ export async function transcribeFile(
   const res = await call(
     "/audio/transcriptions",
     { method: "POST", headers: { Authorization: `Bearer ${key}` }, body: form },
-    30_000,
+    20_000,
   );
   if (!res.ok) throw await providerError(res);
   const data = (await res.json()) as { text?: string };
   return (data.text ?? "").trim();
+}
+
+const SUGGEST_INSTRUCTIONS = `You help a home seller fill in a property disclosure form. You get one question, a plain-language note on what it covers, and the seller's spoken answer as a transcript. Say which answer the seller gave. The seller will confirm or change it, so when the answer is unclear, say so instead of guessing.
+
+Choices:
+- "yes": the seller describes anything the question covers, now or in the past, even if it was minor or has been fixed, or simply says yes.
+- "no": the seller says it hasn't happened or isn't an issue, and mentions nothing the question covers. "Not that I know of" counts as no.
+- "not_sure": the seller says they don't know or aren't sure, or only believes or guesses ("I think so", "I don't think so", "maybe").
+- "unclear": the answer doesn't address the question, asks something back, or declines to answer.
+
+Rules:
+- If the seller mentions anything the question covers, the answer is "yes", even if they started with "no" or say it was fixed.
+- Never answer "no" when the seller hedges about whether it happened; use "not_sure".
+- Problems at someone else's property don't count.
+- If the seller corrects themselves, use their final answer.
+- "evidence" is the shortest phrase from the transcript that supports the choice, copied exactly, word for word. Use "" for "unclear".`;
+
+/**
+ * Asks a small model which answer a spoken response gives (POST /v1/responses with
+ * Structured Outputs). Returns the raw response; readSuggestion() decides whether to trust it.
+ */
+export async function requestSuggestion(
+  question: { prompt: string; covers: string },
+  transcript: string,
+): Promise<unknown> {
+  const key = apiKey();
+  const res = await call(
+    "/responses",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: process.env.OPENAI_SUGGEST_MODEL || "gpt-6-luna",
+        reasoning: { effort: "none" },
+        temperature: 0, // same transcript, same suggestion
+        store: false, // don't keep the seller's words on OpenAI's side for later retrieval
+        max_output_tokens: 200,
+        instructions: SUGGEST_INSTRUCTIONS,
+        input: `Question: ${question.prompt}\nWhat it covers: ${question.covers}\nSeller's answer: """${transcript}"""`,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "disclosure_suggestion",
+            strict: true,
+            schema: SUGGESTION_SCHEMA,
+          },
+        },
+      }),
+    },
+    15_000,
+  );
+  if (!res.ok) throw await providerError(res);
+  return res.json();
 }
