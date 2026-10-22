@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { MAX_RECORDING_MS, useRecorder, type Recording, type RecorderError } from "@/hooks/useRecorder";
 import { CHOICE_LABEL, type Choice } from "@/lib/answers";
 import { disclosureActions } from "@/lib/answers-store";
@@ -58,8 +58,16 @@ export function VoiceAnswer({
   const [phase, setPhase] = useState<Phase>({ name: "idle" });
   const [announcement, setAnnouncement] = useState("");
   const lastRecording = useRef<Recording | null>(null);
-  const reviewRef = useRef<HTMLTextAreaElement>(null);
   const transcriptId = useId();
+  // Each panel marks the control that should get focus when it appears, so focus
+  // never drops to the page when the button that had it disappears. Only after the
+  // homeowner has used voice on this question; opening the page doesn't move focus.
+  const focusTarget = useRef<HTMLElement | null>(null);
+  const setFocusTarget = useCallback((el: HTMLElement | null) => {
+    focusTarget.current = el;
+  }, []);
+  const engaged = useRef(false);
+  const addButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -93,20 +101,22 @@ export function VoiceAnswer({
     void transcribe(recording);
   });
 
-  // Move focus to the transcript once it appears, so keyboard and screen reader users land on it.
-  const reviewing = phase.name === "review";
+  const currentView =
+    recorder.status !== "idle" ? recorder.status : phase.name === "idle" && recorder.error ? "error" : phase.name;
   useEffect(() => {
-    if (reviewing) reviewRef.current?.focus();
-  }, [reviewing]);
+    if (engaged.current) focusTarget.current?.focus();
+  }, [currentView]);
 
   function startRecording() {
+    engaged.current = true;
     setPhase({ name: "idle" });
-    setAnnouncement("Recording. Press stop when you're done.");
+    setAnnouncement("");
     void recorder.start();
   }
 
   function addToAnswer(transcript: string) {
     disclosureActions.addTranscript(questionId, transcript);
+    engaged.current = false; // onAdded moves focus to the explanation box instead
     setPhase({ name: "idle" });
     setAnnouncement("Added to your answer.");
     onAdded();
@@ -125,17 +135,25 @@ export function VoiceAnswer({
   const showIdle = phase.name === "idle" && !recording && !requesting;
   const error: ErrorView | null =
     phase.name === "error" ? phase : showIdle && recorder.error ? RECORDER_ERRORS[recorder.error] : null;
+  // Recorder states are announced from the recorder itself, so "Recording" is
+  // never said before the browser has actually granted the microphone.
+  const liveMessage = requesting
+    ? "Waiting for microphone permission."
+    : recording
+      ? "Recording. Press stop when you're done."
+      : announcement;
 
   return (
     <div className={styles.voice}>
       <p className="visually-hidden" role="status" aria-live="polite">
-        {announcement}
+        {liveMessage}
       </p>
 
       {showIdle && !error && (
         <div className={styles.row}>
           <button
             type="button"
+            ref={setFocusTarget}
             className="button button--secondary"
             onClick={startRecording}
             disabled={available === null}
@@ -152,7 +170,12 @@ export function VoiceAnswer({
       {requesting && (
         <div className={styles.panel}>
           <p>Waiting for microphone permission&hellip;</p>
-          <button type="button" className="button button--quiet" onClick={recorder.cancel}>
+          <button
+            type="button"
+            ref={setFocusTarget}
+            className="button button--quiet"
+            onClick={recorder.cancel}
+          >
             Cancel
           </button>
         </div>
@@ -172,7 +195,12 @@ export function VoiceAnswer({
           </div>
           <p className="small muted">Start with yes, no or not sure, then add any details.</p>
           <div className="actions">
-            <button type="button" className="button button--primary" onClick={recorder.stop}>
+            <button
+              type="button"
+              ref={setFocusTarget}
+              className="button button--primary"
+              onClick={recorder.stop}
+            >
               <StopIcon />
               Stop and transcribe
             </button>
@@ -184,7 +212,7 @@ export function VoiceAnswer({
       )}
 
       {phase.name === "transcribing" && (
-        <div className={styles.panel} aria-busy="true">
+        <div className={styles.panel} aria-busy="true" tabIndex={-1} ref={setFocusTarget}>
           <p className={styles.working}>
             <span className={styles.spinner} aria-hidden="true" />
             Transcribing your answer&hellip;
@@ -199,7 +227,7 @@ export function VoiceAnswer({
           </label>
           <textarea
             id={transcriptId}
-            ref={reviewRef}
+            ref={setFocusTarget}
             className={styles.transcript}
             rows={3}
             value={phase.transcript}
@@ -209,10 +237,15 @@ export function VoiceAnswer({
             questionId={questionId}
             transcript={phase.transcript}
             currentChoice={currentChoice}
+            onChosen={(label) => {
+              setAnnouncement(`Answer set to ${label}.`);
+              addButton.current?.focus(); // the suggestion box disappears once it's applied
+            }}
           />
           <div className="actions">
             <button
               type="button"
+              ref={addButton}
               className="button button--primary"
               onClick={() => addToAnswer(phase.transcript)}
               disabled={!phase.transcript.trim()}
@@ -230,12 +263,18 @@ export function VoiceAnswer({
       )}
 
       {error && (
-        <div className={`callout callout--error ${styles.error}`} role="alert">
+        <div
+          className={`callout callout--error ${styles.error}`}
+          role="alert"
+          tabIndex={-1}
+          ref={error.retry ? undefined : setFocusTarget}
+        >
           <p>{error.message} You can also type your answer above.</p>
           <div className="actions">
             {error.retry === "transcribe" && (
               <button
                 type="button"
+                ref={setFocusTarget}
                 className="button button--secondary"
                 onClick={() => lastRecording.current && void transcribe(lastRecording.current)}
               >
@@ -243,7 +282,12 @@ export function VoiceAnswer({
               </button>
             )}
             {error.retry === "record" && (
-              <button type="button" className="button button--secondary" onClick={startRecording}>
+              <button
+                type="button"
+                ref={setFocusTarget}
+                className="button button--secondary"
+                onClick={startRecording}
+              >
                 {phase.name === "error" ? "Record again" : "Try again"}
               </button>
             )}
@@ -267,10 +311,12 @@ function SuggestionChip({
   questionId,
   transcript,
   currentChoice,
+  onChosen,
 }: {
   questionId: QuestionId;
   transcript: string;
   currentChoice: Choice | null;
+  onChosen: (label: string) => void;
 }) {
   const suggestion = suggestChoice(questionId, transcript);
   if (!suggestion) {
@@ -300,7 +346,10 @@ function SuggestionChip({
       <button
         type="button"
         className="button button--secondary"
-        onClick={() => disclosureActions.choose(questionId, suggestion.choice)}
+        onClick={() => {
+          disclosureActions.choose(questionId, suggestion.choice);
+          onChosen(label);
+        }}
       >
         {currentChoice ? `Change to ${label}` : `Choose ${label}`}
       </button>

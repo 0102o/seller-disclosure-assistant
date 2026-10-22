@@ -15,6 +15,8 @@ async function mockTranscribe(page: Page, onPost: (route: Route) => Promise<void
 async function recordFor(page: Page) {
   await page.getByRole("button", { name: "Answer by voice" }).click();
   await expect(page.getByText("Listening")).toBeVisible();
+  // Focus follows the panel, so keyboard users land on Stop.
+  await expect(page.getByRole("button", { name: "Stop and transcribe" })).toBeFocused();
   await expect(page.getByText(/0:0[2-9] \/ 2:00/)).toBeVisible();
   await page.getByRole("button", { name: "Stop and transcribe" }).click();
 }
@@ -46,6 +48,7 @@ test("a spoken answer is reviewed, the suggestion confirmed, then added", async 
   await transcript.fill(`${SPOKEN} A plumber fixed it.`);
   await page.getByRole("button", { name: "Choose Yes" }).click();
   await expect(page.getByLabel("Yes", { exact: true })).toBeChecked();
+  await expect(page.getByRole("button", { name: "Add to my answer" })).toBeFocused();
 
   await page.getByRole("button", { name: "Add to my answer" }).click();
   const details = page.getByLabel("Details");
@@ -67,6 +70,7 @@ test("a failed transcription keeps the recording so it can be retried", async ({
   await page.goto("/q/roof");
   await recordFor(page);
   await expect(page.getByRole("alert").filter({ hasText: "Voice isn't working right now" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Try again" })).toBeFocused();
   await page.getByRole("button", { name: "Try again" }).click();
 
   await expect(page.getByLabel(/what we heard/)).toHaveValue("No, never.");
