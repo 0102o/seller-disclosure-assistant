@@ -10,7 +10,7 @@ https://github.com/user-attachments/assets/ad4ad0ab-b82b-4aa8-b696-ababdf0d2004
 
 ## Running it
 
-Requires Node.js 22.12+ or 24 (see `.nvmrc`).
+Requires Node.js 22 (22.12 or later), 24 or 26; `.nvmrc` picks 24.
 
 ```bash
 npm install
