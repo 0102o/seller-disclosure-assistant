@@ -88,7 +88,6 @@ Typed answers save as the homeowner goes, with no Save button. A spoken answer i
 ## Limitations
 
 - Answers live in one browser on one device. Clearing site data erases them.
-- Automated tests run in Chromium with a fake microphone. Firefox and Safari use the same code path but haven't been tested by hand.
 - The suggestion eval is small: 79 answers I wrote, not real sellers' speech. Suggestions add a second API call and arrive a second or two after the transcript.
 - `/api/transcribe` only rejects cross-site browser requests. A public deployment would need sign-in and rate limiting.
 - The app doesn't store audio, but recordings are sent to OpenAI to be transcribed.
