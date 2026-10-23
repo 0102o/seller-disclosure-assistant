@@ -40,7 +40,7 @@ Node: `^22.12.0 || ^24.0.0 || >=26.0.0` (Vitest's range). Next.js allows one dev
 | `src/lib/answers.ts` | Types, pure reducer, progress and status selectors. |
 | `src/lib/storage.ts` | Versioned localStorage envelope: load (validates, never throws), save, `canSave` probe. |
 | `src/lib/answers-store.ts` | localStorage as the source of truth, exposed through `useSyncExternalStore`; action creators. |
-| `src/lib/openai.ts` | The only place that reads `OPENAI_API_KEY` (`server-only`). Transcription, suggestion request, error mapping, one retry on network errors. |
+| `src/lib/openai.ts` | The only place that reads `OPENAI_API_KEY` (`server-only`). Transcription, suggestion request, error mapping, one retry when the connection drops (a timeout isn't retried). |
 | `src/lib/suggestion.ts` | Suggestion type, JSON schema, `readSuggestion()` (parses the Responses output and verifies evidence). |
 | `src/lib/same-origin.ts` | Rejects cross-site browser requests to the API routes. Not authentication. |
 | `src/lib/transcribe-client.ts` | Browser-side calls to the two routes; error codes. |

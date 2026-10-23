@@ -39,14 +39,20 @@ async function providerError(res: Response): Promise<VoiceError> {
   return new VoiceError("unavailable", 502);
 }
 
-// A dropped connection or timeout is retried once; an HTTP error response is not.
+// A dropped connection is retried once. A timeout isn't (the homeowner can tap Try
+// again instead of waiting twice as long), and neither is an HTTP error response.
 async function call(path: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   for (let attempt = 1; ; attempt++) {
+    const started = Date.now();
     try {
       return await fetch(`${API}${path}`, { ...init, signal: AbortSignal.timeout(timeoutMs) });
-    } catch {
-      console.warn(`[openai] ${path} network error or timeout (attempt ${attempt})`);
-      if (attempt === 2) throw new VoiceError("unavailable", 504);
+    } catch (error) {
+      const { name, cause } = error as { name?: string; cause?: { code?: string } };
+      // What failed and how fast, never the request itself.
+      console.warn(
+        `[openai] ${path} ${[name, cause?.code].filter(Boolean).join(" ")} after ${Date.now() - started} ms (attempt ${attempt})`,
+      );
+      if (name === "TimeoutError" || attempt === 2) throw new VoiceError("unavailable", 504);
     }
   }
 }
@@ -74,7 +80,7 @@ export async function transcribeFile(
   const res = await call(
     "/audio/transcriptions",
     { method: "POST", headers: { Authorization: `Bearer ${key}` }, body: form },
-    20_000,
+    45_000, // up to two minutes of audio, sometimes over a slow link
   );
   if (!res.ok) throw await providerError(res);
   const data = (await res.json()) as { text?: string };
