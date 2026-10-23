@@ -6,6 +6,8 @@ import { expect, test } from "@playwright/test";
 test.skip(!process.env.REAL_API, "set REAL_API=1 to call the real API");
 
 test("the fixture recording is transcribed and Yes is suggested", async ({ page }) => {
+  // Real network calls: allow for the server's 45-second transcription timeout.
+  test.setTimeout(120_000);
   await page.goto("/q/water-damage");
   await page.getByRole("button", { name: "Answer by voice" }).click();
   // The fixture is about 7 seconds long.
@@ -13,7 +15,7 @@ test("the fixture recording is transcribed and Yes is suggested", async ({ page 
   await page.getByRole("button", { name: "Stop and transcribe" }).click();
 
   await expect(page.getByLabel(/what we heard/)).toHaveValue(/small leak in the kitchen/i, {
-    timeout: 30_000,
+    timeout: 60_000,
   });
   await expect(page.getByRole("button", { name: /^Save as Yes.*Suggested/ })).toBeVisible({
     timeout: 30_000,
