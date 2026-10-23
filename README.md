@@ -2,6 +2,10 @@
 
 A small Next.js app where a homeowner answers five property-disclosure questions by typing or by voice. Speech goes through a server route that calls the provided OpenAI API, and the homeowner reviews every transcript, and confirms any suggested answer, before anything is saved.
 
+**Demo, 87 seconds.** Voices are synthetic (OpenAI gpt-4o-mini-tts); the app and its API calls are real.
+
+https://github.com/user-attachments/assets/ad4ad0ab-b82b-4aa8-b696-ababdf0d2004
+
 ![Answering by voice: the transcript can be edited, and the suggested answer is highlighted but only saved when tapped](docs/screenshots/voice-review.png)
 
 ## Running it
