@@ -19,7 +19,7 @@ npm run dev                  # http://localhost:3000
 ```
 
 Without a key the app still works: voice answers are hidden with a short note, and typing works as usual.
-If the key can't use the default models, set `OPENAI_TRANSCRIBE_MODEL` (for example `gpt-4o-mini-transcribe`) or `OPENAI_SUGGEST_MODEL`; the server logs the API's status and error code.
+If the key can't use the default models, set `OPENAI_TRANSCRIBE_MODEL` (for example `gpt-4o-mini-transcribe`) or `OPENAI_SUGGEST_MODEL` (a fast model such as `gpt-4o-mini`; other models are sent without the default's `reasoning` and `temperature` settings, which they may not accept); the server logs the API's status and error code.
 
 Tests:
 

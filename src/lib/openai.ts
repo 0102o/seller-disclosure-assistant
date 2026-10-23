@@ -87,6 +87,8 @@ export async function transcribeFile(
   return (data.text ?? "").trim();
 }
 
+const DEFAULT_SUGGEST_MODEL = "gpt-6-luna";
+
 const SUGGEST_INSTRUCTIONS = `You help a home seller fill in a property disclosure form. You get one question, a plain-language note on what it covers, and the seller's spoken answer as a transcript. Say which answer the seller gave. The seller will confirm or change it, so when the answer is unclear, say so instead of guessing.
 
 Choices:
@@ -111,15 +113,18 @@ export async function requestSuggestion(
   transcript: string,
 ): Promise<unknown> {
   const key = apiKey();
+  const model = process.env.OPENAI_SUGGEST_MODEL || DEFAULT_SUGGEST_MODEL;
   const res = await call(
     "/responses",
     {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: process.env.OPENAI_SUGGEST_MODEL || "gpt-6-luna",
-        reasoning: { effort: "none" },
-        temperature: 0, // same transcript, same suggestion
+        model,
+        // Tuned for the default model; other models may reject either setting.
+        ...(model === DEFAULT_SUGGEST_MODEL
+          ? { reasoning: { effort: "none" }, temperature: 0 } // same transcript, same suggestion
+          : {}),
         store: false, // don't keep the seller's words on OpenAI's side for later retrieval
         max_output_tokens: 200,
         instructions: SUGGEST_INSTRUCTIONS,
